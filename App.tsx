@@ -208,27 +208,29 @@ function App() {
         }
       });
 
-      result.right_panel = MOCK_PROFILE;
-      result.middle_panel = {
-        message_type: 'customer_cards',
-        cards: [{
-          customer_id: MOCK_PROFILE.customer_id,
-          display_name: MOCK_PROFILE.customer_name,
-          tags: MOCK_PROFILE.core_tags,
-          key_metrics: { 
-            "授信使用率": `${(MOCK_PROFILE.financial_metrics.bank_metrics.credit_utilization * 100).toFixed(0)}%`,
-            "风险事件": `${MOCK_PROFILE.risk_events.event_count} ${MOCK_PROFILE.risk_events.max_risk_level === 'high' ? 'HIGH' : 'MEDIUM'}`
-          },
-          ai_summary: MOCK_PROFILE.interactions.interactions[0]?.ai_summary || '暂无互动记录',
-          cof_expansion: {
-            steps: [
-              "1️⃣ 匹配字段 [crm_customer_profile.name] → ID: CUST202500123",
-              "2️⃣ 从 [crm_financial_metrics] 获取 [credit_utilization]",
-              "3️⃣ 触发 [信用风险预警模型] (来源: 信贷管理系统)"
-            ]
-          }
-        }]
-      };
+      if (result.middle_panel?.message_type === 'customer_cards') {
+        result.right_panel = MOCK_PROFILE;
+        result.middle_panel = {
+          message_type: 'customer_cards',
+          cards: [{
+            customer_id: MOCK_PROFILE.customer_id,
+            display_name: MOCK_PROFILE.customer_name,
+            tags: MOCK_PROFILE.core_tags,
+            key_metrics: { 
+              "授信使用率": `${(MOCK_PROFILE.financial_metrics.bank_metrics.credit_utilization * 100).toFixed(0)}%`,
+              "风险事件": `${MOCK_PROFILE.risk_events.event_count} ${MOCK_PROFILE.risk_events.max_risk_level === 'high' ? 'HIGH' : 'MEDIUM'}`
+            },
+            ai_summary: MOCK_PROFILE.interactions.interactions[0]?.ai_summary || '暂无互动记录',
+            cof_expansion: {
+              steps: [
+                "1️⃣ 匹配字段 [crm_customer_profile.name] → ID: CUST202500123",
+                "2️⃣ 从 [crm_financial_metrics] 获取 [credit_utilization]",
+                "3️⃣ 触发 [信用风险预警模型] (来源: 信贷管理系统)"
+              ]
+            }
+          }]
+        };
+      }
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
