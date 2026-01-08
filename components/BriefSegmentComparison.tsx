@@ -1,14 +1,21 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Sparkles, ChevronRight } from 'lucide-react';
 
+/**
+ * 简要客群对比组件属性接口
+ */
 interface BriefSegmentComparisonProps {
-  groups: Array<{ name: string; count: number; dsl?: string }>;
-  comparison_summary: string[];
-  comparison_table: Array<{ dimension: string; group_a: string; group_b: string; significant: boolean; insight?: string }>;
-  onViewDetail: () => void;
-  dataProvenance?: string;
+  groups: Array<{ name: string; count: number; dsl?: string }>; // 客群组列表
+  comparison_summary: string[]; // 对比总结列表
+  comparison_table: Array<{ dimension: string; group_a: string; group_b: string; significant: boolean; insight?: string }>; // 对比详情表
+  onViewDetail: () => void; // 查看详情的回调
+  dataProvenance?: string; // 数据来源
 }
 
+/**
+ * 简要客群对比组件
+ * 功能：展示两个或多个客群的对比分析结果，包括核心洞察和对比详情
+ */
 const BriefSegmentComparison: React.FC<BriefSegmentComparisonProps> = ({
   groups,
   comparison_summary,
@@ -18,6 +25,7 @@ const BriefSegmentComparison: React.FC<BriefSegmentComparisonProps> = ({
 }) => {
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+      {/* 标题和基本信息 */}
       <div className="flex justify-between items-start">
         <div>
           <h4 className="font-bold text-slate-900">客群对比分析</h4>
@@ -46,6 +54,7 @@ const BriefSegmentComparison: React.FC<BriefSegmentComparisonProps> = ({
         </button>
       </div>
 
+      {/* 核心洞察 */}
       {comparison_summary && comparison_summary.length > 0 && (
         <div className="bg-blue-50 rounded-xl p-4 space-y-2">
           <p className="text-xs font-bold text-blue-900 mb-2">核心洞察</p>
@@ -58,6 +67,7 @@ const BriefSegmentComparison: React.FC<BriefSegmentComparisonProps> = ({
         </div>
       )}
 
+      {/* 对比表格 */}
       <div className="border-t border-slate-100 pt-4">
         <table className="w-full text-xs text-left">
           <thead>
@@ -78,7 +88,7 @@ const BriefSegmentComparison: React.FC<BriefSegmentComparisonProps> = ({
                 <td className="py-3 font-medium text-slate-800">
                   {row.dimension}
                   {row.significant && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">显著</span>
+                    <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px]">显著</span>
                   )}
                 </td>
                 <td className="py-3 text-right font-bold text-slate-700">{row.group_a}</td>
@@ -96,6 +106,7 @@ const BriefSegmentComparison: React.FC<BriefSegmentComparisonProps> = ({
         </table>
       </div>
 
+      {/* 数据来源 */}
       {dataProvenance && (
         <p className="text-[10px] text-slate-500 italic border-t border-slate-100 pt-3">
           {dataProvenance}

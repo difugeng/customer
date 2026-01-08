@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageType, ChatMessage, SavedSegment, CustomerProfile, SegmentAnalysisDetail, SegmentComparisonDetail, RightPanelType } from './types';
+import React from 'react';
+import { MessageType, ChatMessage, SavedSegment, SegmentAnalysisDetail, RightPanelType } from './types';
 import { apiService } from './api';
 import LeftPanel from './components/LeftPanel';
 import RightPanel from './components/RightPanel';
@@ -11,259 +11,84 @@ import {
   ArrowRight, ShieldAlert, Sparkles, Database
 } from 'lucide-react';
 
-// 从 API 服务获取宁德时代客户资料作为默认展示
-const MOCK_PROFILE: CustomerProfile = apiService.getMockCustomerProfileDirectSync("CUST202500123")!;
+// 导入自定义 Hook
+import { useMessageHandler } from './src/hooks/useMessageHandler';
+import { useRightPanel } from './src/hooks/useRightPanel';
+import { useSegmentManagement } from './src/hooks/useSegmentManagement';
+import { useRightPanelDrag } from './src/hooks/useRightPanelDrag';
+
+// 导入常量
+import { DEFAULT_CUSTOMER_ID, CUSTOMER_ID_MAP, SMALL_SAMPLE_THRESHOLD } from './src/constants';
 
 function App() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [savedSegments, setSavedSegments] = useState<SavedSegment[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<CustomerProfile | SegmentAnalysisDetail | SegmentComparisonDetail | null>(null);
-  const [rightPanelType, setRightPanelType] = useState<RightPanelType>(RightPanelType.CUSTOMER_DETAIL);
-  const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(420);
-  const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
-  const [newSegmentName, setNewSegmentName] = useState('');
-  const [currentQueryDSL, setCurrentQueryDSL] = useState('');
-  const [showInlineFilter, setShowInlineFilter] = useState(false);
-  const [pendingQuery, setPendingQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        const [initialMessages, initialSegments] = await Promise.all([
-          apiService.getInitialMessages(),
-          apiService.getSavedSegments()
-        ]);
-        setMessages(initialMessages);
-        setSavedSegments(initialSegments);
-      } catch (error) {
-        console.error('Failed to initialize data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    initializeData();
-  }, []);
+  // 右侧面板拖拽管理
+  const { rightPanelWidth, handleMouseDown } = useRightPanelDrag();
   
-  // 拖拽处理函数 - 只在右侧详情面板显示时启用
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!selectedProfile) return; // 只有在详情面板显示时才启用拖拽
-    
-    e.preventDefault();
-    
-    const startX = e.clientX;
-    const startWidth = rightPanelWidth;
-    
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const diff = moveEvent.clientX - startX; // 鼠标向右移动，面板变宽；鼠标向左移动，面板变窄
-      const newWidth = startWidth - diff;
-      
-      // 限制面板宽度在合理范围内
-      if (newWidth >= 300 && newWidth <= 800) {
-        setRightPanelWidth(newWidth);
-      }
-    };
-    
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
+  // 右侧面板内容管理
+  const { 
+    selectedProfile, 
+    rightPanelType, 
+    setSelectedProfile, 
+    setRightPanelType,
+    handleCustomerClick, 
+    handleShowCustomerDetail,
+    handleShowSegmentAnalysis,
+    handleShowSegmentComparisonDetail,
+    MOCK_PROFILE
+  } = useRightPanel();
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, isTyping]);
+  // 客群管理（先调用，获取savedSegments和setSavedSegments）
+  const { 
+    savedSegments, 
+    setSavedSegments, 
+    showSaveSegmentModal, 
+    setShowSaveSegmentModal, 
+    newSegmentName, 
+    setNewSegmentName, 
+    currentQueryDSL, 
+    setCurrentQueryDSL,
+    handleCompareSegments: rawHandleCompareSegments,
+    handleDeleteSegment,
+    handleSelectSegment: rawHandleSelectSegment,
+    handleSaveSegment
+  } = useSegmentManagement();
 
+  // 消息处理（后调用，传入savedSegments和setSavedSegments）
+  const { 
+    messages, 
+    setMessages, 
+    inputValue, 
+    setInputValue, 
+    isTyping, 
+    showInlineFilter, 
+    pendingQuery, 
+    isLoading,
+    scrollRef, 
+    handleSend,
+    handleRefreshSegment,
+    handleDeleteHistory,
+    handleInlineFilterApply,
+    handleInlineFilterCancel
+  } = useMessageHandler(savedSegments, setSavedSegments);
+
+  // 包装函数：对比客群
   const handleCompareSegments = async (segmentIds: string[]) => {
-    const segments = savedSegments.filter(s => segmentIds.includes(s.id));
-    if (segments.length < 2) return;
-
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      type: MessageType.USER,
-      timestamp: new Date(),
-      content: `对比客群：${segments.map(s => s.name).join(' vs ')}`
-    };
-
-    const { comparison, detail } = await apiService.getSegmentComparisonByIds({ segmentIds, savedSegments });
-
-    const assistantMsg: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      type: MessageType.ASSISTANT,
-      timestamp: new Date(),
-      ...comparison,
-      comparison_detail: detail
-    };
-
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
-  };
-
-  const handleRefreshSegment = (segmentId: string) => {
-    const segment = savedSegments.find(s => s.id === segmentId);
-    if (segment) {
-      handleSend(`刷新客群：${segment.name}`);
+    const msgs = await rawHandleCompareSegments(segmentIds);
+    if (msgs) {
+      setMessages(prev => [...prev, ...msgs]);
     }
   };
 
-  const handleDeleteSegment = (segmentId: string) => {
-    setSavedSegments(prev => prev.filter(s => s.id !== segmentId));
-  };
-
-  const handleCustomerClick = async (customerId: string) => {
-    console.log('Customer clicked with ID:', customerId);
-    
-    const customerProfile = await apiService.getCustomerProfile({ customerId });
-    if (customerProfile) {
-      setSelectedProfile(customerProfile);
-      setRightPanelType(RightPanelType.CUSTOMER_DETAIL);
-    } else {
-      const fallbackProfile = await apiService.getMockCustomerProfileDirect("CUST202500123");
-      if (fallbackProfile) {
-        setSelectedProfile(fallbackProfile);
-        setRightPanelType(RightPanelType.CUSTOMER_DETAIL);
-      }
+  // 包装函数：选择客群
+  const handleSelectSegment = async (segment: SavedSegment) => {
+    const msgs = await rawHandleSelectSegment(segment);
+    if (msgs) {
+      setMessages(prev => [...prev, ...msgs]);
     }
   };
 
-  const handleDeleteHistory = (id: string) => {
-    setMessages(prev => prev.filter(m => m.id !== id));
-  };
-
-  const isVagueQuery = (query: string): boolean => {
-    const vaguePatterns = [
-      /找一些.*客户/,
-      /找.*好客户/,
-      /筛选.*客户/,
-      /查找.*客户/,
-      /推荐.*客户/,
-      /优质客户/,
-      /潜力客户/,
-      /重点客户/
-    ];
-    return vaguePatterns.some(pattern => pattern.test(query));
-  };
-
-  const handleInlineFilterApply = (conditions: any[]) => {
-    const conditionsText = conditions.map(c => `${c.field} ${c.operator} ${c.value}`).join(' 且 ');
-    setShowInlineFilter(false);
-    handleSend(`${pendingQuery}（筛选条件：${conditionsText}）`);
-  };
-
-  const handleInlineFilterCancel = () => {
-    setShowInlineFilter(false);
-    setPendingQuery('');
-  };
-
-  const handleSaveSegment = () => {
-    if (newSegmentName.trim()) {
-      const newSegment: SavedSegment = {
-        id: Date.now().toString(),
-        name: newSegmentName,
-        customer_count: messages[messages.length - 1].middle_panel?.summary?.total_count || 0,
-        dsl: currentQueryDSL,
-        created_at: new Date().toISOString().split('T')[0]
-      };
-      setSavedSegments(prev => [newSegment, ...prev]);
-      setShowSaveSegmentModal(false);
-      setNewSegmentName('');
-    }
-  };
-
-  const handleSend = async (text?: string) => {
-    const query = text || inputValue;
-    if (!query.trim()) return;
-
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      type: MessageType.USER,
-      timestamp: new Date(),
-      content: query
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setInputValue('');
-
-    if (isVagueQuery(query)) {
-      setPendingQuery(query);
-      setShowInlineFilter(true);
-      return;
-    }
-
-    setIsTyping(true);
-
-    try {
-      const result = await apiService.processRequest({
-        query,
-        context: {
-          saved_segments: savedSegments,
-          current_selected_customer: selectedProfile?.customer_id
-        }
-      });
-
-      if (result.middle_panel?.message_type === 'customer_cards') {
-        result.right_panel = MOCK_PROFILE;
-        result.middle_panel = {
-          message_type: 'customer_cards',
-          cards: [{
-            customer_id: MOCK_PROFILE.customer_id,
-            display_name: MOCK_PROFILE.customer_name,
-            tags: MOCK_PROFILE.core_tags,
-            key_metrics: { 
-              "授信使用率": `${(MOCK_PROFILE.financial_metrics.bank_metrics.credit_utilization * 100).toFixed(0)}%`,
-              "风险事件": `${MOCK_PROFILE.risk_events.event_count} ${MOCK_PROFILE.risk_events.max_risk_level === 'high' ? 'HIGH' : 'MEDIUM'}`
-            },
-            ai_summary: MOCK_PROFILE.interactions.interactions[0]?.ai_summary || '暂无互动记录',
-            cof_expansion: {
-              steps: [
-                "1️⃣ 匹配字段 [crm_customer_profile.name] → ID: CUST202500123",
-                "2️⃣ 从 [crm_financial_metrics] 获取 [credit_utilization]",
-                "3️⃣ 触发 [信用风险预警模型] (来源: 信贷管理系统)"
-              ]
-            }
-          }]
-        };
-      }
-
-      const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: MessageType.ASSISTANT,
-        timestamp: new Date(),
-        ...result
-      };
-
-      setMessages(prev => [...prev, assistantMsg]);
-      
-      if (result.left_panel_update?.action === 'add_segment') {
-        setSavedSegments(prev => [...prev, result.left_panel_update.segment]);
-      }
-
-      if (result.right_panel) {
-        setSelectedProfile(result.right_panel);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const handleShowCustomerDetail = async (customerId: string) => {
-    const profile = await apiService.getCustomerProfile({ customerId });
-    if (profile) {
-      setSelectedProfile(profile);
-      setRightPanelType(RightPanelType.CUSTOMER_DETAIL);
-    }
-  };
-
-  const handleShowSegmentAnalysis = async (msg: ChatMessage) => {
+  // 自定义的客群分析处理逻辑，覆盖 Hook 中的默认实现
+  const customHandleShowSegmentAnalysis = async (msg: ChatMessage) => {
     const mockData = await apiService.getSegmentAnalysisDetail();
     const segmentAnalysisDetail: SegmentAnalysisDetail = {
       ...mockData,
@@ -277,20 +102,8 @@ function App() {
       },
       top_customers: msg.middle_panel?.customer_list?.slice(0, 3).map(c => {
         // Map customer names to proper IDs that exist in MOCK_CUSTOMER_PROFILES
-        const customerIdMap: Record<string, string> = {
-          "宁德时代新能源科技股份有限公司": "CUST202500123",
-          "比亚迪股份有限公司": "CUST202500124",
-          "上海华虹半导体有限公司": "CUST202500456",
-          "中芯国际集成电路制造有限公司": "CUST202500457",
-          "江苏长电科技股份有限公司": "CUST202500458",
-          "中微半导体设备（上海）股份有限公司": "CUST202500459",
-          "上海韦尔半导体股份有限公司": "CUST202500460",
-          "隆基绿能科技股份有限公司": "CUST202500461",
-          "晶科能源股份有限公司": "CUST202500462",
-          "天合光能股份有限公司": "CUST202500463"
-        };
         return {
-          id: customerIdMap[c.name] || `CUST_${c.name.replace(/\s+/g, '_')}`,
+          id: CUSTOMER_ID_MAP[c.name] || `CUST_${c.name.replace(/\s+/g, '_')}`,
           name: c.name,
           industry: '制造业',
           location: c.region,
@@ -310,34 +123,6 @@ function App() {
     };
     setSelectedProfile(segmentAnalysisDetail);
     setRightPanelType(RightPanelType.SEGMENT_ANALYSIS);
-  };
-
-  const handleShowSegmentComparisonDetail = async (msg: ChatMessage) => {
-    const mockData = msg.comparison_detail || await apiService.getSegmentComparisonDetail({});
-    const segmentComparisonDetail: SegmentComparisonDetail = { ...mockData };
-    setSelectedProfile(segmentComparisonDetail);
-    setRightPanelType(RightPanelType.SEGMENT_COMPARISON);
-  };
-
-  const handleSelectSegment = async (segment: SavedSegment) => {
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      type: MessageType.USER,
-      timestamp: new Date(),
-      content: `查看客群：${segment.name}`
-    };
-
-    const segmentResult = await apiService.getSegmentResultById({ segmentId: segment.id });
-    if (!segmentResult) return;
-
-    const assistantMsg: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      type: MessageType.ASSISTANT,
-      timestamp: new Date(),
-      ...segmentResult
-    };
-
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
   };
 
   return (
@@ -403,133 +188,133 @@ function App() {
                   )}
 
                   {msg.middle_panel?.message_type === 'customer_cards' && msg.middle_panel.cards?.map((card, i) => (
-                    <div key={i} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleShowCustomerDetail(card.customer_id)}>
-                      <div className="p-4 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-slate-400 uppercase">客户摘要</p>
-                          <h4 className="font-bold text-slate-900">{card.display_name}</h4>
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {card.tags.map((t, idx) => (
-                              <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">{t}</span>
-                            ))}
+                      <div key={i} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleShowCustomerDetail(card.customer_id)}>
+                        <div className="p-4 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-slate-400 uppercase">客户摘要</p>
+                            <h4 className="font-bold text-slate-900">{card.display_name}</h4>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {card.tags.map((t, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">{t}</span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleShowCustomerDetail(card.customer_id);
-                          }}
-                          className="ml-3 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-100"
-                        >
-                          查看详情
-                        </button>
-                      </div>
-                      <div className="p-4 grid grid-cols-2 gap-4 text-xs">
-                        {Object.entries(card.key_metrics).map(([k, v]) => (
-                          <div key={k}>
-                            <p className="text-slate-400 mb-0.5">{k}</p>
-                            <p className="font-bold text-slate-800">{v}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="px-4 py-3 bg-blue-50/30 italic text-xs text-slate-600 border-t border-slate-50">
-                        <span className="font-bold not-italic text-blue-700 mr-2">洞察:</span>
-                        {card.ai_summary}
-                      </div>
-                      <details className="border-t border-slate-50">
-                        <summary 
-                          className="px-4 py-2 text-[10px] text-slate-400 font-bold"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          【查看 AI 推理步骤】
-                        </summary>
-                        <div className="px-4 pb-3 space-y-1 text-[10px] text-slate-500 font-mono">
-                          {card.cof_expansion.steps.map((s, idx) => <p key={idx}>{s}</p>)}
-                        </div>
-                      </details>
-                    </div>
-                  ))}
-
-                  {msg.middle_panel?.message_type === 'segment_result' && (
-                    <div 
-                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => handleShowSegmentAnalysis(msg)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-slate-900">{msg.from_saved_segment ? msg.segment_name : '客群查询结果'}</h4>
-                          <p className="text-xs text-slate-500">找到符合条件的客户 {msg.middle_panel.summary?.total_count} 家</p>
-                        </div>
-                        {!msg.from_saved_segment && (
-                          <button 
-                            onClick={() => {
-                              setCurrentQueryDSL(msg.content || '');
-                              setShowSaveSegmentModal(true);
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShowCustomerDetail(card.customer_id);
                             }}
-                            className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-100"
+                            className="ml-3 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-100"
                           >
-                            保存为客群
+                            查看详情
                           </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleShowSegmentAnalysis(msg);
-                          }}
-                          className="ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-blue-100"
-                        >
-                          查看详情
-                        </button>
-                      </div>
-                      {msg.middle_panel.summary?.total_count && msg.middle_panel.summary.total_count < 5 && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-                          <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-700 font-medium">样本过小（{msg.middle_panel.summary.total_count} 家），结论谨慎参考</p>
                         </div>
-                      )}
-                      <div className="space-y-2">
-                        {msg.middle_panel.summary?.insights.map((insight, idx) => (
-                          <div key={idx} className="flex gap-2 items-start text-xs text-slate-700">
-                            <ShieldAlert className="w-3.5 h-3.5 text-rose-500 mt-0.5 flex-shrink-0" />
-                            {insight}
+                        <div className="p-4 grid grid-cols-2 gap-4 text-xs">
+                          {Object.entries(card.key_metrics).map(([k, v]) => (
+                            <div key={k}>
+                              <p className="text-slate-400 mb-0.5">{k}</p>
+                              <p className="font-bold text-slate-800">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="px-4 py-3 bg-blue-50/30 italic text-xs text-slate-600 border-t border-slate-50">
+                          <span className="font-bold not-italic text-blue-700 mr-2">洞察:</span>
+                          {card.ai_summary}
+                        </div>
+                        <details className="border-t border-slate-50">
+                          <summary 
+                            className="px-4 py-2 text-[10px] text-slate-400 font-bold"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            【查看 AI 推理步骤】
+                          </summary>
+                          <div className="px-4 pb-3 space-y-1 text-[10px] text-slate-500 font-mono">
+                            {card.cof_expansion.steps.map((s, idx) => <p key={idx}>{s}</p>)}
                           </div>
-                        ))}
+                        </details>
                       </div>
-                      <div className="border-t border-slate-100 pt-3">
-                        <table className="w-full text-xs text-left">
-                          <thead>
-                            <tr className="text-slate-400 border-b border-slate-50">
-                              <th className="pb-2 font-medium">客户名称</th>
-                              <th className="pb-2 font-medium">地区</th>
-                              <th className="pb-2 font-medium text-right">授信使用率</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {msg.middle_panel.customer_list?.map((c, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50 cursor-pointer" onClick={(e) => {
-                                e.stopPropagation();
-                                handleShowCustomerDetail('CUST202500123');
-                              }}>
-                                <td className="py-2 font-bold text-slate-800">{c.name}</td>
-                                <td className="py-2 text-slate-500">{c.region}</td>
-                                <td className={`py-2 text-right font-bold ${parseInt(c.credit_util) > 80 ? 'text-rose-500' : 'text-slate-700'}`}>{c.credit_util}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                    ))}
 
-                  {msg.middle_panel?.message_type === 'segment_comparison' && (
-                    <BriefSegmentComparison
-                      groups={msg.middle_panel.groups || []}
-                      comparison_summary={msg.middle_panel.comparison_summary || []}
-                      comparison_table={msg.middle_panel.comparison_table || []}
-                      dataProvenance={msg.middle_panel.data_provenance}
-                      onViewDetail={() => handleShowSegmentComparisonDetail(msg)}
-                    />
-                  )}
+                    {msg.middle_panel?.message_type === 'segment_result' && (
+                      <div 
+                        className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => customHandleShowSegmentAnalysis(msg)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-bold text-slate-900">{msg.from_saved_segment ? msg.segment_name : '客群查询结果'}</h4>
+                            <p className="text-xs text-slate-500">找到符合条件的客户 {msg.middle_panel.summary?.total_count} 家</p>
+                          </div>
+                          {!msg.from_saved_segment && (
+                            <button 
+                              onClick={() => {
+                                setCurrentQueryDSL(msg.content || '');
+                                setShowSaveSegmentModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-100"
+                            >
+                              保存为客群
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              customHandleShowSegmentAnalysis(msg);
+                            }}
+                            className="ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-blue-100"
+                          >
+                            查看详情
+                          </button>
+                        </div>
+                        {msg.middle_panel.summary?.total_count && msg.middle_panel.summary.total_count < SMALL_SAMPLE_THRESHOLD && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                            <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-700 font-medium">样本过小（{msg.middle_panel.summary.total_count} 家），结论谨慎参考</p>
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          {msg.middle_panel.summary?.insights.map((insight, idx) => (
+                            <div key={idx} className="flex gap-2 items-start text-xs text-slate-700">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-500 mt-0.5 flex-shrink-0" />
+                              {insight}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="border-t border-slate-100 pt-3">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-50">
+                                <th className="pb-2 font-medium">客户名称</th>
+                                <th className="pb-2 font-medium">地区</th>
+                                <th className="pb-2 font-medium text-right">授信使用率</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {msg.middle_panel.customer_list?.map((c, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50 cursor-pointer" onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleShowCustomerDetail(DEFAULT_CUSTOMER_ID);
+                                }}>
+                                  <td className="py-2 font-bold text-slate-800">{c.name}</td>
+                                  <td className="py-2 text-slate-500">{c.region}</td>
+                                  <td className={`py-2 text-right font-bold ${parseInt(c.credit_util) > 80 ? 'text-rose-500' : 'text-slate-700'}`}>{c.credit_util}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.middle_panel?.message_type === 'segment_comparison' && (
+                      <BriefSegmentComparison
+                        groups={msg.middle_panel.groups || []}
+                        comparison_summary={msg.middle_panel.comparison_summary || []}
+                        comparison_table={msg.middle_panel.comparison_table || []}
+                        dataProvenance={msg.middle_panel.data_provenance}
+                        onViewDetail={() => handleShowSegmentComparisonDetail(msg)}
+                      />
+                    )}
 
                   {msg.middle_panel?.options && (
                     <div className="flex flex-wrap gap-2">

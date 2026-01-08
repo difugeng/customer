@@ -421,6 +421,7 @@ const SegmentAnalysisDetail: React.FC<SegmentAnalysisDetailProps> = ({ data, onC
           )}
         </section>
 
+        {/* 关系网络区块 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('relationship')}
@@ -469,6 +470,7 @@ const SegmentAnalysisDetail: React.FC<SegmentAnalysisDetailProps> = ({ data, onC
           )}
         </section>
 
+        {/* 产品使用与覆盖率区块 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('products')}
@@ -523,6 +525,7 @@ const SegmentAnalysisDetail: React.FC<SegmentAnalysisDetailProps> = ({ data, onC
           )}
         </section>
 
+        {/* 风险与合规事件区块 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('risks')}
@@ -578,6 +581,7 @@ const SegmentAnalysisDetail: React.FC<SegmentAnalysisDetailProps> = ({ data, onC
           )}
         </section>
 
+        {/* 客户互动历史区块 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('interactions')}
@@ -626,6 +630,7 @@ const SegmentAnalysisDetail: React.FC<SegmentAnalysisDetailProps> = ({ data, onC
           )}
         </section>
 
+        {/* 优质客户区块 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('customers')}
@@ -670,6 +675,7 @@ const SegmentAnalysisDetail: React.FC<SegmentAnalysisDetailProps> = ({ data, onC
           )}
         </section>
 
+        {/* 核心洞察区块 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('insights')}

@@ -475,18 +475,31 @@ const RightPanel: React.FC<RightPanelProps> = ({ data, type, onClose, onCustomer
     );
   };
 
+  /**
+   * 渲染客群分析详情
+   * @returns 客群分析详情JSX
+   */
   const renderSegmentAnalysisDetail = () => {
     const segmentData = data as SegmentAnalysisDetailType;
     return <SegmentAnalysisDetail data={segmentData} onClose={onClose} onCustomerClick={onCustomerClick} />;
   };
 
+  /**
+   * 渲染客群对比详情
+   * @returns 客群对比详情JSX
+   */
   const renderSegmentComparisonDetail = () => {
     const comparisonData = data as SegmentComparisonDetailType;
     return <SegmentComparisonDetail data={comparisonData} onClose={onClose} />;
   };
 
+  /**
+   * 组件返回部分
+   * 根据不同类型渲染不同的详情内容
+   */
   return (
     <div className="h-full flex flex-col bg-white border-l border-slate-200 shadow-2xl overflow-y-auto">
+      {/* 根据右侧面板类型渲染对应的内容 */}
       {type === RightPanelType.CUSTOMER_DETAIL && renderCustomerDetail()}
       {type === RightPanelType.SEGMENT_ANALYSIS && renderSegmentAnalysisDetail()}
       {type === RightPanelType.SEGMENT_COMPARISON && renderSegmentComparisonDetail()}

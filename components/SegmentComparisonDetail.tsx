@@ -387,6 +387,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
           )}
         </section>
 
+        {/* 4. 关系网络对比 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('relationship')}
@@ -397,6 +398,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
             </div>
             {collapsedSections.relationship ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
+          {/* 关系网络对比内容 */}
           {!collapsedSections.relationship && (
             <div className="bg-purple-50/30 rounded-xl p-4 border border-purple-100 space-y-4">
               <div className="grid grid-cols-2 gap-4 text-xs">
@@ -422,6 +424,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
                   </div>
                 </div>
               </div>
+              {/* 关系网络显著差异 */}
               {data.relationship_comparison.significant_differences.length > 0 && (
                 <div className="pt-3 border-t border-purple-100">
                   <p className="text-xs font-bold text-purple-900 mb-2">显著差异</p>
@@ -445,6 +448,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
           )}
         </section>
 
+        {/* 5. 产品使用对比 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('products')}
@@ -455,6 +459,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
             </div>
             {collapsedSections.products ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
+          {/* 产品使用对比内容 */}
           {!collapsedSections.products && (
             <div className="bg-orange-50/30 rounded-xl p-4 border border-orange-100 space-y-4">
               <div className="grid grid-cols-2 gap-4 text-xs">
@@ -473,6 +478,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
                   </div>
                 </div>
               </div>
+              {/* 产品使用显著差异 */}
               {data.product_comparison.significant_differences.length > 0 && (
                 <div className="pt-3 border-t border-orange-100">
                   <p className="text-xs font-bold text-orange-900 mb-2">显著差异</p>
@@ -496,6 +502,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
           )}
         </section>
 
+        {/* 6. 风险事件对比 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('risks')}
@@ -506,6 +513,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
             </div>
             {collapsedSections.risks ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
+          {/* 风险事件对比内容 */}
           {!collapsedSections.risks && (
             <div className="bg-red-50/30 rounded-xl p-4 border border-red-100 space-y-4">
               <div className="grid grid-cols-2 gap-4 text-xs">
@@ -524,6 +532,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
                   </div>
                 </div>
               </div>
+              {/* 风险事件显著差异 */}
               {data.risk_comparison.significant_differences.length > 0 && (
                 <div className="pt-3 border-t border-red-100">
                   <p className="text-xs font-bold text-red-900 mb-2">显著差异</p>
@@ -547,6 +556,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
           )}
         </section>
 
+        {/* 7. 客户互动对比 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('interactions')}
@@ -557,6 +567,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
             </div>
             {collapsedSections.interactions ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
+          {/* 客户互动对比内容 */}
           {!collapsedSections.interactions && (
             <div className="bg-cyan-50/30 rounded-xl p-4 border border-cyan-100 space-y-4">
               <div className="grid grid-cols-2 gap-4 text-xs">
@@ -568,6 +579,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
                   </div>
                 </div>
               </div>
+              {/* 客户互动显著差异 */}
               {data.interactions_comparison.significant_differences.length > 0 && (
                 <div className="pt-3 border-t border-cyan-100">
                   <p className="text-xs font-bold text-cyan-900 mb-2">显著差异</p>
@@ -591,6 +603,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
           )}
         </section>
 
+        {/* 8. 核心洞察 */}
         <section className="space-y-3">
           <button 
             onClick={() => toggleSection('insights')}
@@ -601,9 +614,11 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
             </div>
             {collapsedSections.insights ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
+          {/* 核心洞察内容 */}
           {!collapsedSections.insights && (
             <div className="bg-indigo-50/30 rounded-xl p-4 border border-indigo-100 text-xs">
               <div className="space-y-2">
+                {/* 核心洞察列表 */}
                 {data.comparison_summary.map((summary, idx) => (
                   <div key={idx} className="flex gap-2 items-start">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-600 mt-0.5 flex-shrink-0" />
@@ -611,6 +626,7 @@ const SegmentComparisonDetail: React.FC<SegmentComparisonDetailProps> = ({ data,
                   </div>
                 ))}
               </div>
+              {/* 数据来源说明 */}
               <div className="mt-3 pt-3 border-t border-indigo-100">
                 <p className="text-[10px] text-slate-400">{data.data_provenance}</p>
               </div>
