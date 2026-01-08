@@ -42,14 +42,22 @@ const RightPanel: React.FC<RightPanelProps> = ({ data, type, onClose, onCustomer
     return `${(value * 100).toFixed(1)}%`;
   };
 
+  // 将useMemo移到组件顶层，确保每次渲染都调用
+  const revenueChartData = useMemo(() => {
+    if (type === RightPanelType.CUSTOMER_DETAIL) {
+      const customerData = data as CustomerProfile;
+      return [
+        { name: '营收', value: customerData.financial_metrics.metrics.revenue },
+        { name: '净利润', value: customerData.financial_metrics.metrics.net_profit },
+        { name: '经营性现金流', value: customerData.financial_metrics.metrics.operating_cf },
+        { name: '自由现金流', value: customerData.financial_metrics.metrics.free_cf }
+      ];
+    }
+    return [];
+  }, [data, type]);
+
   const renderCustomerDetail = () => {
     const customerData = data as CustomerProfile;
-    const revenueChartData = useMemo(() => ([
-      { name: '营收', value: customerData.financial_metrics.metrics.revenue },
-      { name: '净利润', value: customerData.financial_metrics.metrics.net_profit },
-      { name: '经营性现金流', value: customerData.financial_metrics.metrics.operating_cf },
-      { name: '自由现金流', value: customerData.financial_metrics.metrics.free_cf }
-    ]), [customerData]);
 
     const riskLevel = customerData.risk_events.max_risk_level?.toLowerCase() || 'low';
     const riskLevelClass = riskLevel === 'high' ? 'bg-rose-500 text-white' : riskLevel === 'medium' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white';
